@@ -15,7 +15,7 @@ import streamlit as st
 from PIL import Image
 
 from disease_profiles import get_profile, severity_level
-from model import MissingModelDependency, generate_gradcam_plus_plus, load_hybrid_model, 
+from model import MissingModelDependency, generate_gradcam_plus_plus, load_hybrid_model, predict_leaf
 
 import urllib.request
 
