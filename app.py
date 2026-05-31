@@ -33,6 +33,10 @@ RESEARCH_TITLE = (
     "ALeaf-STENet: Hybrid Deep Learning Framework for Apple Leaf Disease "
     "Detection and Severity Assessment"
 )
+FOOTER_TEXT = (
+    "ALeaf-STENet: Advanced Severity Tracking via Ensemble Networks | "
+    "Developed by Mesbah Uddin Bhuiyan"
+)
 
 
 st.set_page_config(
@@ -82,6 +86,7 @@ DEFAULT_DIAGNOSIS = {
 def init_state() -> None:
     defaults = {
         "active_tab": "Research",
+        "previous_tab": None,
         "diagnosis": DEFAULT_DIAGNOSIS,
         "selected_leaf_name": "",
         "selected_leaf_uri": None,
@@ -133,8 +138,14 @@ def inject_css() -> None:
         [data-testid="stSidebar"] {
           background: #061612;
           border-right: 1px solid var(--border);
+          font-family: "JetBrains Mono", monospace;
         }
-        [data-testid="stSidebar"] * { font-family: "JetBrains Mono", monospace; }
+        [data-testid="stSidebar"] [class*="material"],
+        [data-testid="stSidebar"] button span,
+        [data-testid="stSidebar"] [data-testid*="Icon"] {
+          font-family: "Material Symbols Rounded", "Material Symbols Outlined", "Material Icons" !important;
+          font-feature-settings: "liga" !important;
+        }
         [data-testid="stSidebar"] [role="radiogroup"] label {
           background: rgba(10, 31, 27, .55);
           border: 1px solid rgba(26, 58, 50, .9);
@@ -760,55 +771,279 @@ def _pdf_safe(text: object) -> str:
     return raw.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
 
 
-def build_pdf_report(diagnosis: dict, specimen_name: str) -> bytes:
-    """Create a compact one-page PDF report without external dependencies."""
+def _pdf_color(color: tuple[int, int, int]) -> str:
+    return " ".join(f"{channel / 255:.3f}" for channel in color)
 
-    lines = [
-        RESEARCH_TITLE,
-        "",
-        f"System Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
-        f"Specimen Field Key: {specimen_name or 'DEMO_LEAF_SCAB_Specimen'}",
-        f"Detected Pathogen Class: {diagnosis['diseaseName']}",
-        f"Scientific Classification: {diagnosis['scientificName']}",
-        f"STENet Match Confidence: {diagnosis['confidence']}%",
-        f"Tissue Infection Ratio: {diagnosis['severity']}% ({diagnosis['severityLevel']})",
-        "",
-        "Symptom Attribution Overview:",
+
+def _pdf_text(
+    text: object,
+    x: float,
+    y: float,
+    size: float = 10,
+    font: str = "F1",
+    color: tuple[int, int, int] = (226, 232, 240),
+) -> str:
+    return (
+        f"BT /{font} {size:.1f} Tf {_pdf_color(color)} rg "
+        f"{x:.1f} {y:.1f} Td ({_pdf_safe(text)}) Tj ET"
+    )
+
+
+def _pdf_rect(
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    fill: tuple[int, int, int],
+    stroke: tuple[int, int, int] | None = None,
+) -> str:
+    if stroke:
+        return (
+            f"q {_pdf_color(fill)} rg {_pdf_color(stroke)} RG "
+            f"{x:.1f} {y:.1f} {width:.1f} {height:.1f} re B Q"
+        )
+    return f"q {_pdf_color(fill)} rg {x:.1f} {y:.1f} {width:.1f} {height:.1f} re f Q"
+
+
+def _pdf_stream(commands: list[str]) -> bytes:
+    stream = "\n".join(commands).encode("latin-1", errors="replace")
+    return b"<< /Length " + str(len(stream)).encode("ascii") + b" >>\nstream\n" + stream + b"\nendstream"
+
+
+def _prepare_pdf_image(image_bytes: bytes | None) -> dict | None:
+    if not image_bytes:
+        return None
+    try:
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        image.thumbnail((900, 900), Image.Resampling.LANCZOS)
+        buffer = io.BytesIO()
+        image.save(buffer, format="JPEG", quality=90)
+        return {"bytes": buffer.getvalue(), "width": image.width, "height": image.height}
+    except Exception:
+        return None
+
+
+def _pdf_image_object(image_info: dict) -> bytes:
+    image_bytes = image_info["bytes"]
+    header = (
+        f"<< /Type /XObject /Subtype /Image /Width {image_info['width']} "
+        f"/Height {image_info['height']} /ColorSpace /DeviceRGB "
+        f"/BitsPerComponent 8 /Filter /DCTDecode /Length {len(image_bytes)} >>\n"
+    ).encode("ascii")
+    return header + b"stream\n" + image_bytes + b"\nendstream"
+
+
+def _pdf_draw_image(name: str, image_info: dict, x: float, y: float, width: float, height: float) -> str:
+    scale = min(width / image_info["width"], height / image_info["height"])
+    draw_width = image_info["width"] * scale
+    draw_height = image_info["height"] * scale
+    draw_x = x + (width - draw_width) / 2
+    draw_y = y + (height - draw_height) / 2
+    return f"q {draw_width:.1f} 0 0 {draw_height:.1f} {draw_x:.1f} {draw_y:.1f} cm /{name} Do Q"
+
+
+def _pdf_report_header(commands: list[str], page_label: str) -> None:
+    commands.extend(
+        [
+            _pdf_rect(0, 0, 612, 842, (4, 13, 11)),
+            _pdf_rect(0, 760, 612, 82, (6, 22, 18)),
+            _pdf_text("ALeaf-STENet Diagnosis Report", 38, 812, 18, "F2", (255, 255, 255)),
+            _pdf_text(RESEARCH_TITLE, 38, 792, 8.4, "F1", (167, 243, 208)),
+            _pdf_text(page_label, 512, 812, 9, "F2", (45, 212, 191)),
+            _pdf_text(FOOTER_TEXT, 38, 24, 8.4, "F1", (45, 160, 110)),
+        ]
+    )
+
+
+def _pdf_placeholder(commands: list[str], x: float, y: float, width: float, height: float, label: str) -> None:
+    commands.extend(
+        [
+            _pdf_rect(x, y, width, height, (2, 6, 5), (26, 58, 50)),
+            _pdf_text(label, x + 22, y + (height / 2), 10, "F2", (100, 116, 139)),
+        ]
+    )
+
+
+def _pdf_detail_lines(diagnosis: dict, specimen_name: str) -> list[tuple[str, str]]:
+    lines: list[tuple[str, str]] = [
+        ("Diagnosis Output", "section"),
+        (f"System Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}", "body"),
+        (f"Specimen Field Key: {specimen_name or 'DEMO_LEAF_SCAB_Specimen'}", "body"),
+        (f"Detected Pathogen Class: {diagnosis['diseaseName']}", "body"),
+        (f"Scientific Classification: {diagnosis['scientificName']}", "body"),
+        (f"STENet Match Confidence: {diagnosis['confidence']}%", "body"),
+        (f"Tissue Infection Ratio: {diagnosis['severity']}% ({diagnosis['severityLevel']})", "body"),
+        (f"Device: {diagnosis.get('device', 'unknown')}", "body"),
+        ("", "blank"),
+        ("Top Class Probabilities", "section"),
     ]
-    lines.extend(f"- {item}" for item in diagnosis["symptoms"])
-    lines.extend(["", "Treatment Recommendation Plan:", "I. Cultural & Preventive"])
-    lines.extend(f"- {item}" for item in diagnosis["treatment"]["preventive"])
-    lines.append("II. Organic & Biocontrol")
-    lines.extend(f"- {item}" for item in diagnosis["treatment"]["organic"])
-    lines.append("III. Targeted Chemical")
-    lines.extend(f"- {item}" for item in diagnosis["treatment"]["chemical"])
-    lines.extend(["", "Research Notes:", diagnosis["researchNotes"]])
+    lines.extend(
+        (f"- {pred['class_name']}: {pred['confidence']}%", "body")
+        for pred in diagnosis.get("top_predictions", [])
+    )
+    lines.extend(
+        [
+            ("", "blank"),
+            ("Grad-CAM++ Explanation", "section"),
+            (diagnosis["gradCamMetadata"]["description"], "body"),
+            (f"Hotspot Nodes: {len(diagnosis['gradCamMetadata']['hotspots'])}", "body"),
+            ("", "blank"),
+            ("Symptom Attribution Overview", "section"),
+        ]
+    )
+    lines.extend((f"- {item}", "body") for item in diagnosis["symptoms"])
+    lines.extend([("", "blank"), ("Treatment Plan: Preventive Care", "section")])
+    lines.extend((f"- {item}", "body") for item in diagnosis["treatment"]["preventive"])
+    lines.append(("", "blank"))
+    lines.append(("Treatment Plan: Organic Control", "section"))
+    lines.extend((f"- {item}", "body") for item in diagnosis["treatment"]["organic"])
+    lines.append(("", "blank"))
+    lines.append(("Treatment Plan: Chemical Control", "section"))
+    lines.extend((f"- {item}", "body") for item in diagnosis["treatment"]["chemical"])
+    lines.extend([("", "blank"), ("Research Notes", "section"), (diagnosis["researchNotes"], "body")])
+    return lines
 
-    wrapped: list[str] = []
-    for line in lines:
-        if not line:
-            wrapped.append("")
+
+def _pdf_wrapped_lines(items: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    wrapped: list[tuple[str, str]] = []
+    for text, kind in items:
+        if kind == "blank":
+            wrapped.append(("", "blank"))
             continue
-        wrapped.extend(textwrap.wrap(line, width=92) or [""])
+        width = 74 if kind == "section" else 88
+        chunks = textwrap.wrap(str(text), width=width) or [""]
+        for index, chunk in enumerate(chunks):
+            wrapped.append((chunk if index == 0 else f"  {chunk}", kind if index == 0 else "body"))
+    return wrapped
 
-    content_parts = ["BT /F1 10 Tf 50 790 Td 12 TL"]
-    first = True
-    for line in wrapped[:58]:
-        if first:
-            content_parts.append(f"({_pdf_safe(line)}) Tj")
-            first = False
+
+def _pdf_text_page(lines: list[tuple[str, str]], page_number: int) -> bytes:
+    commands: list[str] = []
+    _pdf_report_header(commands, f"Page {page_number}")
+    y = 724.0
+    for text, kind in lines:
+        if kind == "blank":
+            y -= 9
+            continue
+        if kind == "section":
+            commands.append(_pdf_text(text, 42, y, 11, "F2", (52, 211, 153)))
+            y -= 17
         else:
-            content_parts.append(f"T* ({_pdf_safe(line)}) Tj")
-    content_parts.append("ET")
-    stream = "\n".join(content_parts).encode("latin-1", errors="replace")
+            commands.append(_pdf_text(text, 48, y, 9.2, "F1", (203, 213, 225)))
+            y -= 13.4
+    return _pdf_stream(commands)
 
-    objects = [
-        b"<< /Type /Catalog /Pages 2 0 R >>",
-        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
-        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-        b"<< /Length " + str(len(stream)).encode("ascii") + b" >>\nstream\n" + stream + b"\nendstream",
-    ]
+
+def build_pdf_report(
+    diagnosis: dict,
+    specimen_name: str,
+    specimen_bytes: bytes | None = None,
+    gradcam_bytes: bytes | None = None,
+) -> bytes:
+    """Create a color PDF report with specimen, Grad-CAM++, and diagnosis output."""
+
+    specimen_image = _prepare_pdf_image(specimen_bytes)
+    gradcam_image = _prepare_pdf_image(gradcam_bytes)
+
+    objects: list[bytes] = []
+
+    def add_object(obj: bytes) -> int:
+        objects.append(obj)
+        return len(objects)
+
+    catalog_ref = add_object(b"")
+    pages_ref = add_object(b"")
+    font_ref = add_object(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+    bold_ref = add_object(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>")
+
+    image_refs: list[tuple[str, int, dict]] = []
+    if specimen_image:
+        image_refs.append(("Im1", add_object(_pdf_image_object(specimen_image)), specimen_image))
+    if gradcam_image:
+        image_refs.append(("Im2", add_object(_pdf_image_object(gradcam_image)), gradcam_image))
+
+    def resources() -> str:
+        xobjects = ""
+        if image_refs:
+            entries = " ".join(f"/{name} {ref} 0 R" for name, ref, _info in image_refs)
+            xobjects = f" /XObject << {entries} >>"
+        return f"<< /Font << /F1 {font_ref} 0 R /F2 {bold_ref} 0 R >>{xobjects} >>"
+
+    page_refs: list[int] = []
+    commands: list[str] = []
+    _pdf_report_header(commands, "Page 1")
+    commands.extend(
+        [
+            _pdf_text("Color Input Image", 42, 730, 11, "F2", (52, 211, 153)),
+            _pdf_text("Grad-CAM++ Attention Map", 324, 730, 11, "F2", (45, 212, 191)),
+            _pdf_rect(38, 474, 254, 242, (2, 6, 5), (26, 58, 50)),
+            _pdf_rect(320, 474, 254, 242, (2, 6, 5), (26, 58, 50)),
+        ]
+    )
+    if specimen_image:
+        commands.append(_pdf_draw_image("Im1", specimen_image, 48, 486, 234, 218))
+    else:
+        _pdf_placeholder(commands, 48, 486, 234, 218, "No input image available")
+    if gradcam_image:
+        commands.append(_pdf_draw_image("Im2", gradcam_image, 330, 486, 234, 218))
+    else:
+        _pdf_placeholder(commands, 330, 486, 234, 218, "No Grad-CAM++ image available")
+
+    severity = float(diagnosis["severity"])
+    severity_width = max(0, min(170, severity * 1.7))
+    commands.extend(
+        [
+            _pdf_rect(38, 348, 536, 104, (10, 31, 27), (26, 58, 50)),
+            _pdf_text("Detected Pathogen Class", 54, 424, 8.8, "F1", (148, 163, 184)),
+            _pdf_text(diagnosis["diseaseName"], 54, 404, 16, "F2", (255, 255, 255)),
+            _pdf_text(diagnosis["scientificName"], 54, 386, 9.5, "F1", (52, 211, 153)),
+            _pdf_text(f"Confidence: {diagnosis['confidence']}%", 362, 420, 12, "F2", (45, 212, 191)),
+            _pdf_text(f"Severity: {severity}% ({diagnosis['severityLevel']})", 362, 394, 12, "F2", (251, 146, 60)),
+            _pdf_rect(362, 374, 170, 8, (39, 39, 42)),
+            _pdf_rect(362, 374, severity_width, 8, (251, 146, 60)),
+            _pdf_text(f"Specimen: {specimen_name or 'DEMO_LEAF_SCAB_Specimen'}", 54, 362, 8.6, "F1", (203, 213, 225)),
+        ]
+    )
+
+    y = 314
+    commands.append(_pdf_text("Top Class Probabilities", 42, y, 11, "F2", (52, 211, 153)))
+    for pred in diagnosis.get("top_predictions", []):
+        y -= 18
+        commands.append(_pdf_text(f"{pred['class_name']}: {pred['confidence']}%", 54, y, 9.5, "F1", (203, 213, 225)))
+
+    y -= 28
+    commands.append(_pdf_text("Grad-CAM++ Explanation", 42, y, 11, "F2", (45, 212, 191)))
+    for line in textwrap.wrap(diagnosis["gradCamMetadata"]["description"], width=92):
+        y -= 14
+        commands.append(_pdf_text(line, 54, y, 8.8, "F1", (203, 213, 225)))
+
+    first_content_ref = add_object(_pdf_stream(commands))
+    page_refs.append(
+        add_object(
+            (
+                f"<< /Type /Page /Parent {pages_ref} 0 R /MediaBox [0 0 612 842] "
+                f"/Resources {resources()} /Contents {first_content_ref} 0 R >>"
+            ).encode("ascii")
+        )
+    )
+
+    all_lines = _pdf_wrapped_lines(_pdf_detail_lines(diagnosis, specimen_name))
+    lines_per_page = 47
+    for offset in range(0, len(all_lines), lines_per_page):
+        page_number = len(page_refs) + 1
+        content_ref = add_object(_pdf_text_page(all_lines[offset : offset + lines_per_page], page_number))
+        page_refs.append(
+            add_object(
+                (
+                    f"<< /Type /Page /Parent {pages_ref} 0 R /MediaBox [0 0 612 842] "
+                    f"/Resources {resources()} /Contents {content_ref} 0 R >>"
+                ).encode("ascii")
+            )
+        )
+
+    objects[catalog_ref - 1] = f"<< /Type /Catalog /Pages {pages_ref} 0 R >>".encode("ascii")
+    kids = " ".join(f"{page_ref} 0 R" for page_ref in page_refs)
+    objects[pages_ref - 1] = f"<< /Type /Pages /Kids [ {kids} ] /Count {len(page_refs)} >>".encode("ascii")
 
     pdf = bytearray(b"%PDF-1.4\n")
     offsets = [0]
@@ -960,6 +1195,28 @@ def process_arch_upload(uploaded_file) -> None:
         )
 
 
+def set_active_tab(tab_name: str) -> None:
+    if tab_name != st.session_state.active_tab:
+        st.session_state.previous_tab = st.session_state.active_tab
+        st.session_state.active_tab = tab_name
+
+
+def render_back_control() -> None:
+    if st.session_state.active_tab == "Research":
+        return
+
+    target = st.session_state.previous_tab or "Research"
+    if target == st.session_state.active_tab:
+        target = "Research"
+
+    back_col, _ = st.columns([1.15, 5], gap="small")
+    with back_col:
+        if st.button(f"Back to {target}", key=f"back_to_{target}", use_container_width=True):
+            st.session_state.previous_tab = st.session_state.active_tab
+            st.session_state.active_tab = target
+            st.rerun()
+
+
 def render_topbar() -> None:
     device = st.session_state.get("diagnosis", {}).get("device")
     model_state = "CUDA Multi-GPU Node" if device == "cuda" else "Streamlit Ready"
@@ -1006,7 +1263,7 @@ def render_sidebar() -> None:
             index=options.index(st.session_state.active_tab),
             label_visibility="collapsed",
         )
-        st.session_state.active_tab = choice
+        set_active_tab(choice)
         st.markdown(
             """
             <div style="margin-top:28px;padding:12px;border:1px solid #1A3A32;border-radius:12px;background:#020605;">
@@ -1085,7 +1342,7 @@ def render_home() -> None:
         )
         if uploaded is not None:
             run_inference(uploaded)
-            st.session_state.active_tab = "Diagnosis"
+            set_active_tab("Diagnosis")
             st.rerun()
     with right:
         render_leaf_demo_visual()
@@ -1122,11 +1379,11 @@ def render_home() -> None:
     btn1, btn2, _ = st.columns([1, 1.2, 2])
     with btn1:
         if st.button("Load Live Demo Playground", use_container_width=True):
-            st.session_state.active_tab = "Diagnosis"
+            set_active_tab("Diagnosis")
             st.rerun()
     with btn2:
         if st.button("View Model Architecture Framework", use_container_width=True):
-            st.session_state.active_tab = "Swin-T"
+            set_active_tab("Swin-T")
             st.rerun()
 
 
@@ -1364,7 +1621,12 @@ def render_diagnosis() -> None:
         with print_col:
             st.download_button(
                 "Generate PDF Report",
-                data=build_pdf_report(diagnosis, st.session_state.selected_leaf_name),
+                data=build_pdf_report(
+                    diagnosis,
+                    st.session_state.selected_leaf_name,
+                    st.session_state.selected_leaf_bytes,
+                    st.session_state.gradcam_bytes,
+                ),
                 file_name=f"aleaf_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
                 mime="application/pdf",
                 use_container_width=True,
@@ -1480,10 +1742,9 @@ def render_architecture() -> None:
 
 def render_footer() -> None:
     st.markdown(
-        """
+        f"""
         <div class="footer-strip">
-          <span>Aleaf-STENet: Advanced Severity Tracking via Ensemble Networks</span>
-          <span>Processing Engine: Streamlit + PyTorch Hybrid Model</span>
+          <span>{html.escape(FOOTER_TEXT)}</span>
         </div>
         """,
         unsafe_allow_html=True,
@@ -1495,6 +1756,7 @@ def main() -> None:
     inject_css()
     render_sidebar()
     render_topbar()
+    render_back_control()
     st.write("")
 
     if st.session_state.active_tab == "Research":
