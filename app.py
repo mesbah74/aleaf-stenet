@@ -98,6 +98,8 @@ def init_state() -> None:
         "gradcam_uri": None,
         "gradcam_bytes": None,
         "gradcam_error": None,
+        "home_camera_open": False,
+        "diagnosis_camera_open": False,
         "arch_image_uri": None,
     }
     for key, value in defaults.items():
@@ -1678,18 +1680,22 @@ def render_home() -> None:
                 <div class="camera-lens"></div>
                 <div>
                   <div class="camera-title">Camera Capture</div>
-                  <div class="camera-copy">Take a fresh apple leaf photo from phone camera. Validation and diagnosis will run the same way as uploaded images.</div>
+                  <div class="camera-copy">Press Open Camera when you want to take a fresh apple leaf photo. Validation and diagnosis will run the same way as uploaded images.</div>
                 </div>
               </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
-        captured = st.camera_input(
-            "Capture Apple Leaf Photo",
-            key="home_camera_input",
-            help="Use your phone camera to capture a clear apple leaf photo for validation and diagnosis.",
-        )
+        if st.button("Open Camera", key="home_open_camera", use_container_width=True):
+            st.session_state.home_camera_open = True
+        captured = None
+        if st.session_state.home_camera_open:
+            captured = st.camera_input(
+                "Capture Apple Leaf Photo",
+                key="home_camera_input",
+                help="Use your phone camera to capture a clear apple leaf photo for validation and diagnosis.",
+            )
         if captured is not None:
             run_inference(captured)
             set_active_tab("Diagnosis")
@@ -1899,18 +1905,22 @@ def render_diagnosis() -> None:
             <div class="camera-lens"></div>
             <div>
               <div class="camera-title">Camera Capture</div>
-              <div class="camera-copy">Take a fresh apple leaf photo from phone camera. Validation and diagnosis will run the same way as uploaded images.</div>
+              <div class="camera-copy">Press Open Camera when you want to take a fresh apple leaf photo. Validation and diagnosis will run the same way as uploaded images.</div>
             </div>
           </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    captured = st.camera_input(
-        "Capture Apple Leaf Photo",
-        key="diagnosis_camera_input",
-        help="Use your phone camera to capture a clear apple leaf photo for validation and diagnosis.",
-    )
+    if st.button("Open Camera", key="diagnosis_open_camera", use_container_width=True):
+        st.session_state.diagnosis_camera_open = True
+    captured = None
+    if st.session_state.diagnosis_camera_open:
+        captured = st.camera_input(
+            "Capture Apple Leaf Photo",
+            key="diagnosis_camera_input",
+            help="Use your phone camera to capture a clear apple leaf photo for validation and diagnosis.",
+        )
     if captured is not None:
         run_inference(captured)
     elif uploaded is not None:
