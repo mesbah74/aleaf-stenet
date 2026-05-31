@@ -1658,7 +1658,6 @@ def render_home() -> None:
         st.markdown(
             """
             <div class="hero">
-              <div class="eyebrow">IEEE Academic Research Project</div>
               <div class="hero-title">ALeaf-STENet</div>
               <div class="hero-subtitle">Hybrid Deep Learning Framework for Apple Leaf Disease Detection and Severity Assessment</div>
               <p class="body-copy">
