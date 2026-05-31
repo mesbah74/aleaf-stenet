@@ -93,6 +93,8 @@ def init_state() -> None:
         "selected_leaf_bytes": None,
         "last_upload_hash": None,
         "model_error": None,
+        "validation_passed": None,
+        "validation_message": "",
         "gradcam_uri": None,
         "gradcam_bytes": None,
         "gradcam_error": None,
@@ -568,6 +570,33 @@ def inject_css() -> None:
           font-size: 10px;
           line-height: 1.45;
         }
+        .validation-card {
+          border: 1px solid rgba(16,185,129,.28);
+          background: rgba(6,78,59,.22);
+          border-radius: 12px;
+          padding: 14px;
+          margin: 10px 0 14px;
+          color: #d1fae5;
+          font-family: "JetBrains Mono", monospace;
+          font-size: 12px;
+          line-height: 1.55;
+        }
+        .validation-card.invalid {
+          border-color: rgba(248,113,113,.35);
+          background: rgba(127,29,29,.22);
+          color: #fee2e2;
+        }
+        .validation-title {
+          color: #34d399;
+          font-size: 13px;
+          font-weight: 900;
+          margin-bottom: 8px;
+        }
+        .validation-card.invalid .validation-title { color: #fca5a5; }
+        .validation-card ul {
+          margin: 4px 0 0;
+          padding-left: 18px;
+        }
         ul.tiny-list, ol.tiny-list {
           color: #cbd5e1;
           font-size: 12px;
@@ -845,11 +874,11 @@ def _pdf_draw_image(name: str, image_info: dict, x: float, y: float, width: floa
 def _pdf_report_header(commands: list[str], page_label: str) -> None:
     commands.extend(
         [
-            _pdf_rect(0, 0, 612, 842, (4, 13, 11)),
-            _pdf_rect(0, 760, 612, 82, (6, 22, 18)),
-            _pdf_text("ALeaf-STENet Diagnosis Report", 38, 812, 18, "F2", (255, 255, 255)),
-            _pdf_text(RESEARCH_TITLE, 38, 792, 8.4, "F1", (167, 243, 208)),
-            _pdf_text(page_label, 512, 812, 9, "F2", (45, 212, 191)),
+            _pdf_rect(0, 0, 612, 842, (255, 255, 255)),
+            _pdf_rect(0, 760, 612, 82, (236, 253, 245)),
+            _pdf_text("ALeaf-STENet Diagnosis Report", 38, 812, 18, "F2", (6, 78, 59)),
+            _pdf_text(RESEARCH_TITLE, 38, 792, 8.4, "F1", (21, 128, 61)),
+            _pdf_text(page_label, 512, 812, 9, "F2", (13, 148, 136)),
             _pdf_text(FOOTER_TEXT, 38, 24, 8.4, "F1", (45, 160, 110)),
         ]
     )
@@ -858,7 +887,7 @@ def _pdf_report_header(commands: list[str], page_label: str) -> None:
 def _pdf_placeholder(commands: list[str], x: float, y: float, width: float, height: float, label: str) -> None:
     commands.extend(
         [
-            _pdf_rect(x, y, width, height, (2, 6, 5), (26, 58, 50)),
+            _pdf_rect(x, y, width, height, (248, 250, 252), (203, 213, 225)),
             _pdf_text(label, x + 22, y + (height / 2), 10, "F2", (100, 116, 139)),
         ]
     )
@@ -929,7 +958,7 @@ def _pdf_text_page(lines: list[tuple[str, str]], page_number: int) -> bytes:
             commands.append(_pdf_text(text, 42, y, 11, "F2", (52, 211, 153)))
             y -= 17
         else:
-            commands.append(_pdf_text(text, 48, y, 9.2, "F1", (203, 213, 225)))
+            commands.append(_pdf_text(text, 48, y, 9.2, "F1", (51, 65, 85)))
             y -= 13.4
     return _pdf_stream(commands)
 
@@ -976,8 +1005,8 @@ def build_pdf_report(
         [
             _pdf_text("Color Input Image", 42, 730, 11, "F2", (52, 211, 153)),
             _pdf_text("Grad-CAM++ Attention Map", 324, 730, 11, "F2", (45, 212, 191)),
-            _pdf_rect(38, 474, 254, 242, (2, 6, 5), (26, 58, 50)),
-            _pdf_rect(320, 474, 254, 242, (2, 6, 5), (26, 58, 50)),
+            _pdf_rect(38, 474, 254, 242, (248, 250, 252), (203, 213, 225)),
+            _pdf_rect(320, 474, 254, 242, (248, 250, 252), (203, 213, 225)),
         ]
     )
     if specimen_image:
@@ -993,15 +1022,15 @@ def build_pdf_report(
     severity_width = max(0, min(170, severity * 1.7))
     commands.extend(
         [
-            _pdf_rect(38, 348, 536, 104, (10, 31, 27), (26, 58, 50)),
+            _pdf_rect(38, 348, 536, 104, (240, 253, 250), (153, 246, 228)),
             _pdf_text("Detected Pathogen Class", 54, 424, 8.8, "F1", (148, 163, 184)),
-            _pdf_text(diagnosis["diseaseName"], 54, 404, 16, "F2", (255, 255, 255)),
-            _pdf_text(diagnosis["scientificName"], 54, 386, 9.5, "F1", (52, 211, 153)),
+            _pdf_text(diagnosis["diseaseName"], 54, 404, 16, "F2", (15, 23, 42)),
+            _pdf_text(diagnosis["scientificName"], 54, 386, 9.5, "F1", (21, 128, 61)),
             _pdf_text(f"Confidence: {diagnosis['confidence']}%", 362, 420, 12, "F2", (45, 212, 191)),
             _pdf_text(f"Severity: {severity}% ({diagnosis['severityLevel']})", 362, 394, 12, "F2", (251, 146, 60)),
-            _pdf_rect(362, 374, 170, 8, (39, 39, 42)),
+            _pdf_rect(362, 374, 170, 8, (226, 232, 240)),
             _pdf_rect(362, 374, severity_width, 8, (251, 146, 60)),
-            _pdf_text(f"Specimen: {specimen_name or 'DEMO_LEAF_SCAB_Specimen'}", 54, 362, 8.6, "F1", (203, 213, 225)),
+            _pdf_text(f"Specimen: {specimen_name or 'DEMO_LEAF_SCAB_Specimen'}", 54, 362, 8.6, "F1", (51, 65, 85)),
         ]
     )
 
@@ -1009,13 +1038,13 @@ def build_pdf_report(
     commands.append(_pdf_text("Top Class Probabilities", 42, y, 11, "F2", (52, 211, 153)))
     for pred in diagnosis.get("top_predictions", []):
         y -= 18
-        commands.append(_pdf_text(f"{pred['class_name']}: {pred['confidence']}%", 54, y, 9.5, "F1", (203, 213, 225)))
+        commands.append(_pdf_text(f"{pred['class_name']}: {pred['confidence']}%", 54, y, 9.5, "F1", (51, 65, 85)))
 
     y -= 28
     commands.append(_pdf_text("Grad-CAM++ Explanation", 42, y, 11, "F2", (45, 212, 191)))
     for line in textwrap.wrap(diagnosis["gradCamMetadata"]["description"], width=92):
         y -= 14
-        commands.append(_pdf_text(line, 54, y, 8.8, "F1", (203, 213, 225)))
+        commands.append(_pdf_text(line, 54, y, 8.8, "F1", (51, 65, 85)))
 
     first_content_ref = add_object(_pdf_stream(commands))
     page_refs.append(
@@ -1106,6 +1135,140 @@ def estimate_hotspots(image: Image.Image, severity: float, max_points: int = 3) 
     return hotspots
 
 
+def connected_components(mask: np.ndarray, max_components: int = 8) -> list[dict]:
+    height, width = mask.shape
+    visited = np.zeros_like(mask, dtype=bool)
+    components: list[dict] = []
+
+    for start_y in range(height):
+        for start_x in range(width):
+            if visited[start_y, start_x] or not mask[start_y, start_x]:
+                continue
+
+            stack = [(start_y, start_x)]
+            visited[start_y, start_x] = True
+            area = 0
+            min_x = max_x = start_x
+            min_y = max_y = start_y
+
+            while stack:
+                y, x = stack.pop()
+                area += 1
+                min_x = min(min_x, x)
+                max_x = max(max_x, x)
+                min_y = min(min_y, y)
+                max_y = max(max_y, y)
+
+                for next_y, next_x in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1)):
+                    if (
+                        0 <= next_y < height
+                        and 0 <= next_x < width
+                        and not visited[next_y, next_x]
+                        and mask[next_y, next_x]
+                    ):
+                        visited[next_y, next_x] = True
+                        stack.append((next_y, next_x))
+
+            components.append(
+                {
+                    "area": area,
+                    "bbox": (min_x, min_y, max_x + 1, max_y + 1),
+                }
+            )
+            components.sort(key=lambda item: item["area"], reverse=True)
+            components = components[:max_components]
+
+    return components
+
+
+def validate_apple_leaf_image(image: Image.Image) -> bool:
+    width, height = image.size
+    if min(width, height) < 160 or width * height < 40000:
+        return False
+
+    sample = image.convert("RGB").resize((160, 160))
+    arr = np.asarray(sample).astype("float32") / 255.0
+    gray = arr.mean(axis=2)
+    brightness = float(gray.mean())
+    contrast = float(gray.std())
+    dynamic_range = float(gray.max() - gray.min())
+
+    if brightness < 0.16 or brightness > 0.92:
+        return False
+    if contrast < 0.045 or dynamic_range < 0.16:
+        return False
+
+    gradient_y, gradient_x = np.gradient(gray)
+    sharpness = float(np.mean(np.sqrt(gradient_x**2 + gradient_y**2)))
+    if sharpness < 0.0045:
+        return False
+
+    red = arr[:, :, 0]
+    green = arr[:, :, 1]
+    blue = arr[:, :, 2]
+    max_channel = arr.max(axis=2)
+    min_channel = arr.min(axis=2)
+    saturation = (max_channel - min_channel) / np.maximum(max_channel, 0.001)
+
+    green_mask = (
+        (green > red * 1.04)
+        & (green > blue * 1.03)
+        & (green > 0.16)
+        & (saturation > 0.10)
+    )
+    yellow_green_mask = (
+        (green > 0.22)
+        & (red > 0.16)
+        & (np.abs(red - green) < 0.30)
+        & (green > blue * 1.10)
+        & (saturation > 0.08)
+    )
+    vegetation_mask = green_mask | yellow_green_mask
+    green_ratio = float(green_mask.mean())
+    vegetation_ratio = float(vegetation_mask.mean())
+
+    if green_ratio < 0.035 or vegetation_ratio < 0.08 or vegetation_ratio > 0.82:
+        return False
+
+    component_mask = Image.fromarray(vegetation_mask.astype("uint8") * 255).resize((96, 96))
+    component_array = np.asarray(component_mask) > 0
+    components = connected_components(component_array)
+    if not components:
+        return False
+
+    image_area = component_array.size
+    vegetation_area = int(component_array.sum())
+    largest = components[0]
+    largest_area = int(largest["area"])
+    largest_ratio = largest_area / image_area
+    dominant_ratio = largest_area / max(vegetation_area, 1)
+    significant_components = sum(1 for item in components if item["area"] / image_area > 0.012)
+
+    min_x, min_y, max_x, max_y = largest["bbox"]
+    bbox_width = max_x - min_x
+    bbox_height = max_y - min_y
+    bbox_area = max(bbox_width * bbox_height, 1)
+    bbox_ratio = bbox_area / image_area
+    fill_ratio = largest_area / bbox_area
+    aspect_ratio = bbox_width / max(bbox_height, 1)
+
+    if largest_ratio < 0.035 or dominant_ratio < 0.55 or significant_components > 4:
+        return False
+    if not (0.25 <= aspect_ratio <= 4.0):
+        return False
+    if not (0.045 <= bbox_ratio <= 0.92):
+        return False
+    if not (0.16 <= fill_ratio <= 0.90):
+        return False
+
+    red_orange_ratio = float(((red > 0.50) & (red > green * 1.22) & (red > blue * 1.25)).mean())
+    white_flat_ratio = float(((gray > 0.82) & (saturation < 0.12)).mean())
+    if red_orange_ratio > 0.45 or white_flat_ratio > 0.70:
+        return False
+
+    return True
+
+
 def build_diagnosis(prediction: dict, image: Image.Image) -> dict:
     class_name = prediction["class_name"]
     profile = get_profile(class_name)
@@ -1160,10 +1323,25 @@ def run_inference(uploaded_file) -> None:
     st.session_state.gradcam_uri = None
     st.session_state.gradcam_bytes = None
     st.session_state.gradcam_error = None
+    st.session_state.validation_passed = None
+    st.session_state.validation_message = ""
     st.session_state.last_upload_hash = file_hash
 
     try:
         image = Image.open(io.BytesIO(payload)).convert("RGB")
+    except Exception:  # noqa: BLE001
+        st.session_state.validation_passed = False
+        st.session_state.validation_message = "Apple Leaf Not Detected"
+        return
+
+    if not validate_apple_leaf_image(image):
+        st.session_state.validation_passed = False
+        st.session_state.validation_message = "Apple Leaf Not Detected"
+        return
+
+    st.session_state.validation_passed = True
+    st.session_state.validation_message = "Apple Leaf Detected"
+    try:
         with st.spinner("ALeaf-STENet Active Inference Parallel Pipeline running..."):
             bundle = cached_model(str(MODEL_PATH))
             prediction = predict_leaf(bundle, image)
@@ -1283,6 +1461,51 @@ def render_model_error() -> None:
         "For deployment, keep aleaf_best.pth beside app.py and install packages "
         "from requirements.txt. On Streamlit Community Cloud, large model files should "
         "be committed with Git LFS or provided through ALEAF_MODEL_PATH."
+    )
+
+
+def render_validation_status() -> None:
+    if st.session_state.validation_passed is None:
+        return
+
+    if st.session_state.validation_passed:
+        st.markdown(
+            """
+            <div class="validation-card">
+              <div class="validation-title">🟢 Apple Leaf Detected</div>
+              Image Validation → Apple Leaf Detected → ALeaf-STENet Ready
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        return
+
+    st.markdown(
+        """
+        <div class="validation-card invalid">
+          <div class="validation-title">🔴 Apple Leaf Not Detected</div>
+          <strong>❌ Invalid Image Detected</strong><br><br>
+          Please upload a clear Apple Leaf image for disease diagnosis.<br><br>
+          <strong>Accepted:</strong>
+          <ul>
+            <li>✓ Apple Leaf</li>
+            <li>✓ Healthy Leaf</li>
+            <li>✓ Diseased Leaf</li>
+          </ul>
+          <br>
+          <strong>Not Accepted:</strong>
+          <ul>
+            <li>✗ Human</li>
+            <li>✗ Animal</li>
+            <li>✗ Car</li>
+            <li>✗ Building</li>
+            <li>✗ Document</li>
+            <li>✗ Screenshot</li>
+            <li>✗ Random Object</li>
+          </ul>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
 
@@ -1540,7 +1763,14 @@ def render_diagnosis() -> None:
     if uploaded is not None:
         run_inference(uploaded)
 
+    render_validation_status()
     render_model_error()
+    if st.session_state.validation_passed is False:
+        left, _right = st.columns([0.95, 2.05], gap="large")
+        with left:
+            specimen_panel()
+        return
+
     diagnosis = st.session_state.diagnosis
     left, right = st.columns([0.95, 2.05], gap="large")
 
