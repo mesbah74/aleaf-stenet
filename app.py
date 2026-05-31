@@ -1483,8 +1483,14 @@ def process_arch_upload(uploaded_file) -> None:
         )
 
 
+def close_camera_inputs() -> None:
+    st.session_state.home_camera_open = False
+    st.session_state.diagnosis_camera_open = False
+
+
 def set_active_tab(tab_name: str) -> None:
     if tab_name != st.session_state.active_tab:
+        close_camera_inputs()
         st.session_state.previous_tab = st.session_state.active_tab
         st.session_state.active_tab = tab_name
 
@@ -1500,8 +1506,7 @@ def render_back_control() -> None:
     back_col, _ = st.columns([1.15, 5], gap="small")
     with back_col:
         if st.button(f"Back to {target}", key=f"back_to_{target}", use_container_width=True):
-            st.session_state.previous_tab = st.session_state.active_tab
-            st.session_state.active_tab = target
+            set_active_tab(target)
             st.rerun()
 
 
@@ -1698,6 +1703,7 @@ def render_home() -> None:
             )
         if captured is not None:
             run_inference(captured)
+            close_camera_inputs()
             set_active_tab("Diagnosis")
             st.rerun()
         elif uploaded is not None:
@@ -1923,6 +1929,8 @@ def render_diagnosis() -> None:
         )
     if captured is not None:
         run_inference(captured)
+        close_camera_inputs()
+        st.rerun()
     elif uploaded is not None:
         run_inference(uploaded)
 
