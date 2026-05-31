@@ -1,0 +1,5 @@
+streamlit>=1.37
+torch>=2.2
+timm>=0.9.16
+pillow>=10.0
+numpy>=1.26
