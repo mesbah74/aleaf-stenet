@@ -597,6 +597,83 @@ def inject_css() -> None:
           margin: 4px 0 0;
           padding-left: 18px;
         }
+        .camera-capture-card {
+          position: relative;
+          overflow: hidden;
+          border: 1px solid rgba(45,212,191,.30);
+          border-radius: 14px;
+          background:
+            radial-gradient(circle at 12% 20%, rgba(45,212,191,.16), transparent 28%),
+            rgba(6, 22, 18, .92);
+          padding: 14px;
+          margin: 12px 0 10px;
+          font-family: "JetBrains Mono", monospace;
+          box-shadow: 0 14px 32px rgba(0,0,0,.25);
+        }
+        .camera-capture-card:before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(120deg, transparent 0%, rgba(52,211,153,.14) 42%, transparent 70%);
+          transform: translateX(-110%);
+          animation: cameraSweep 3.8s ease-in-out infinite;
+          pointer-events: none;
+        }
+        .camera-capture-content {
+          position: relative;
+          z-index: 1;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .camera-lens {
+          width: 42px;
+          height: 42px;
+          flex: 0 0 auto;
+          border-radius: 14px;
+          border: 1px solid rgba(45,212,191,.38);
+          background: rgba(16,185,129,.14);
+          display: grid;
+          place-items: center;
+          box-shadow: 0 0 0 rgba(45,212,191,.2);
+          animation: lensPulse 2.2s ease-in-out infinite;
+        }
+        .camera-lens:before {
+          content: "";
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          border: 3px solid #5eead4;
+          box-shadow: inset 0 0 12px rgba(94,234,212,.35);
+        }
+        .camera-title {
+          color: #f8fafc;
+          font-size: 13px;
+          font-weight: 900;
+          letter-spacing: .08em;
+          text-transform: uppercase;
+        }
+        .camera-copy {
+          color: #94a3b8;
+          font-family: "Space Grotesk", "Inter", sans-serif;
+          font-size: 12px;
+          line-height: 1.45;
+          margin-top: 4px;
+        }
+        [data-testid="stCameraInput"] {
+          border: 1px solid rgba(45,212,191,.22);
+          border-radius: 14px;
+          background: rgba(4,13,11,.75);
+          padding: 12px;
+        }
+        @keyframes cameraSweep {
+          0%, 52% { transform: translateX(-110%); }
+          78%, 100% { transform: translateX(110%); }
+        }
+        @keyframes lensPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(45,212,191,.16); }
+          50% { box-shadow: 0 0 0 10px rgba(45,212,191,0); }
+        }
         ul.tiny-list, ol.tiny-list {
           color: #cbd5e1;
           font-size: 12px;
@@ -1791,7 +1868,29 @@ def render_diagnosis() -> None:
         key="diagnosis_leaf_uploader",
         help="Supports PNG, JPG, JPEG, and WEBP. The trained hybrid model runs after upload.",
     )
-    if uploaded is not None:
+
+    st.markdown(
+        """
+        <div class="camera-capture-card">
+          <div class="camera-capture-content">
+            <div class="camera-lens"></div>
+            <div>
+              <div class="camera-title">Camera Capture</div>
+              <div class="camera-copy">Take a fresh apple leaf photo from phone camera. Validation and diagnosis will run the same way as uploaded images.</div>
+            </div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    captured = st.camera_input(
+        "Capture Apple Leaf Photo",
+        key="diagnosis_camera_input",
+        help="Use your phone camera to capture a clear apple leaf photo for validation and diagnosis.",
+    )
+    if captured is not None:
+        run_inference(captured)
+    elif uploaded is not None:
         run_inference(uploaded)
 
     render_validation_status()
