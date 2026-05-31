@@ -1193,14 +1193,14 @@ def validate_apple_leaf_image(image: Image.Image) -> bool:
     contrast = float(gray.std())
     dynamic_range = float(gray.max() - gray.min())
 
-    if brightness < 0.16 or brightness > 0.92:
+    if brightness < 0.12 or brightness > 0.96:
         return False
-    if contrast < 0.045 or dynamic_range < 0.16:
+    if contrast < 0.028 or dynamic_range < 0.11:
         return False
 
     gradient_y, gradient_x = np.gradient(gray)
     sharpness = float(np.mean(np.sqrt(gradient_x**2 + gradient_y**2)))
-    if sharpness < 0.0045:
+    if sharpness < 0.0025 and contrast < 0.07:
         return False
 
     red = arr[:, :, 0]
@@ -1211,23 +1211,32 @@ def validate_apple_leaf_image(image: Image.Image) -> bool:
     saturation = (max_channel - min_channel) / np.maximum(max_channel, 0.001)
 
     green_mask = (
-        (green > red * 1.04)
-        & (green > blue * 1.03)
-        & (green > 0.16)
-        & (saturation > 0.10)
+        (green > red * 0.94)
+        & (green > blue * 0.98)
+        & (green > 0.12)
+        & (saturation > 0.055)
     )
     yellow_green_mask = (
-        (green > 0.22)
-        & (red > 0.16)
-        & (np.abs(red - green) < 0.30)
-        & (green > blue * 1.10)
-        & (saturation > 0.08)
+        (green > 0.16)
+        & (red > 0.11)
+        & (red < green * 1.32)
+        & (green > blue * 0.98)
+        & (saturation > 0.045)
     )
-    vegetation_mask = green_mask | yellow_green_mask
+    diseased_leaf_mask = (
+        (gray > 0.10)
+        & (gray < 0.86)
+        & (red > blue * 1.02)
+        & (green > blue * 0.88)
+        & (saturation > 0.05)
+    )
+    vegetation_mask = green_mask | yellow_green_mask | diseased_leaf_mask
     green_ratio = float(green_mask.mean())
     vegetation_ratio = float(vegetation_mask.mean())
 
-    if green_ratio < 0.035 or vegetation_ratio < 0.08 or vegetation_ratio > 0.82:
+    if vegetation_ratio < 0.035 or (green_ratio < 0.010 and vegetation_ratio < 0.075):
+        return False
+    if vegetation_ratio > 0.96 and contrast < 0.09:
         return False
 
     component_mask = Image.fromarray(vegetation_mask.astype("uint8") * 255).resize((96, 96))
@@ -1252,18 +1261,49 @@ def validate_apple_leaf_image(image: Image.Image) -> bool:
     fill_ratio = largest_area / bbox_area
     aspect_ratio = bbox_width / max(bbox_height, 1)
 
-    if largest_ratio < 0.035 or dominant_ratio < 0.55 or significant_components > 4:
+    if largest_ratio < 0.020 or dominant_ratio < 0.32 or significant_components > 8:
         return False
-    if not (0.25 <= aspect_ratio <= 4.0):
+    if not (0.14 <= aspect_ratio <= 7.2):
         return False
-    if not (0.045 <= bbox_ratio <= 0.92):
+    if not (0.022 <= bbox_ratio <= 0.98):
         return False
-    if not (0.16 <= fill_ratio <= 0.90):
+    if not (0.055 <= fill_ratio <= 0.98):
         return False
 
     red_orange_ratio = float(((red > 0.50) & (red > green * 1.22) & (red > blue * 1.25)).mean())
     white_flat_ratio = float(((gray > 0.82) & (saturation < 0.12)).mean())
-    if red_orange_ratio > 0.45 or white_flat_ratio > 0.70:
+    skin_like_ratio = float(
+        (
+            (red > 0.32)
+            & (green > 0.20)
+            & (blue > 0.12)
+            & (red > green * 1.05)
+            & (green > blue * 1.04)
+            & (saturation > 0.08)
+            & (saturation < 0.58)
+        ).mean()
+    )
+    if red_orange_ratio > 0.55 and green_ratio < 0.05:
+        return False
+    if white_flat_ratio > 0.78 and vegetation_ratio < 0.20:
+        return False
+    if skin_like_ratio > 0.22 and green_ratio < 0.06:
+        return False
+
+    leaf_score = 0
+    leaf_score += vegetation_ratio >= 0.055
+    leaf_score += vegetation_ratio >= 0.10
+    leaf_score += green_ratio >= 0.012
+    leaf_score += largest_ratio >= 0.035
+    leaf_score += largest_ratio >= 0.070
+    leaf_score += dominant_ratio >= 0.42
+    leaf_score += significant_components <= 6
+    leaf_score += 0.22 <= aspect_ratio <= 5.4
+    leaf_score += 0.035 <= bbox_ratio <= 0.95
+    leaf_score += 0.085 <= fill_ratio <= 0.95
+    leaf_score += sharpness >= 0.0035
+
+    if leaf_score < 7:
         return False
 
     return True
