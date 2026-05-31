@@ -1671,7 +1671,30 @@ def render_home() -> None:
             key="home_leaf_uploader",
             help="Upload an apple leaf image for hybrid model classification and severity regression.",
         )
-        if uploaded is not None:
+        st.markdown(
+            """
+            <div class="camera-capture-card">
+              <div class="camera-capture-content">
+                <div class="camera-lens"></div>
+                <div>
+                  <div class="camera-title">Camera Capture</div>
+                  <div class="camera-copy">Take a fresh apple leaf photo from phone camera. Validation and diagnosis will run the same way as uploaded images.</div>
+                </div>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        captured = st.camera_input(
+            "Capture Apple Leaf Photo",
+            key="home_camera_input",
+            help="Use your phone camera to capture a clear apple leaf photo for validation and diagnosis.",
+        )
+        if captured is not None:
+            run_inference(captured)
+            set_active_tab("Diagnosis")
+            st.rerun()
+        elif uploaded is not None:
             run_inference(uploaded)
             set_active_tab("Diagnosis")
             st.rerun()
