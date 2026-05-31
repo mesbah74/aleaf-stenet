@@ -123,6 +123,7 @@ def inject_css() -> None:
           --text: #e2e8f0;
           --muted: #94a3b8;
         }
+        * { box-sizing: border-box; }
         html, body, [data-testid="stAppViewContainer"], .stApp {
           background: var(--bg);
           color: var(--text);
@@ -149,6 +150,7 @@ def inject_css() -> None:
           background: rgba(16,185,129,.08);
         }
         .block-container { padding-top: 1rem; padding-bottom: 2.2rem; max-width: 1280px; }
+        [data-testid="column"] { min-width: 0; }
         h1, h2, h3, h4, h5, h6 {
           font-family: "JetBrains Mono", monospace;
           letter-spacing: 0;
@@ -327,13 +329,51 @@ def inject_css() -> None:
           letter-spacing: .12em;
           margin-bottom: 12px;
         }
+        .section-label.no-margin { margin-bottom: 0; }
+        .diagnosis-card {
+          padding: 20px;
+          overflow: hidden;
+        }
+        .diagnosis-card-head {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 14px;
+        }
+        .card-subtext {
+          color: #94a3b8;
+          font-family: "Space Grotesk", "Inter", sans-serif;
+          font-size: 12px;
+          line-height: 1.45;
+          margin-top: 5px;
+        }
+        .status-badge {
+          flex: 0 0 auto;
+          border: 1px solid rgba(16,185,129,.25);
+          border-radius: 8px;
+          background: rgba(16,185,129,.10);
+          color: #a7f3d0;
+          font-family: "JetBrains Mono", monospace;
+          font-size: 9px;
+          font-weight: 900;
+          letter-spacing: .08em;
+          text-transform: uppercase;
+          padding: 5px 8px;
+          white-space: nowrap;
+        }
         [data-testid="stFileUploader"] {
+          width: 100%;
           background: rgba(4,13,11,.95);
           border: 2px dashed rgba(16,185,129,.30);
           border-radius: 14px;
           padding: 16px;
         }
-        [data-testid="stFileUploader"] section { border: 0; padding: 4px; }
+        [data-testid="stFileUploader"] section {
+          width: 100%;
+          border: 0;
+          padding: 4px;
+        }
         [data-testid="stFileUploader"] button, .stButton button, .stDownloadButton button {
           background: linear-gradient(90deg, #10b981, #2dd4bf);
           color: #020605;
@@ -344,6 +384,8 @@ def inject_css() -> None:
           text-transform: uppercase;
           letter-spacing: .04em;
           box-shadow: 0 14px 28px rgba(16,185,129,.14);
+          white-space: normal;
+          min-height: 42px;
         }
         .stButton button:hover, .stDownloadButton button:hover, [data-testid="stFileUploader"] button:hover {
           background: linear-gradient(90deg, #34d399, #5eead4);
@@ -416,11 +458,12 @@ def inject_css() -> None:
         }
         .result-title {
           font-family: "JetBrains Mono", monospace;
-          font-size: 34px;
-          line-height: 1;
+          font-size: clamp(26px, 4vw, 34px);
+          line-height: 1.08;
           font-weight: 900;
           color: white;
           margin: 10px 0 6px 0;
+          overflow-wrap: anywhere;
         }
         .small-badge {
           display: inline-block;
@@ -438,13 +481,13 @@ def inject_css() -> None:
         .metric-value {
           color: #2dd4bf;
           font-family: "JetBrains Mono", monospace;
-          font-size: 34px;
+          font-size: clamp(27px, 4vw, 34px);
           line-height: 1.1;
           font-weight: 900;
         }
         .severity-value {
           font-family: "JetBrains Mono", monospace;
-          font-size: 42px;
+          font-size: clamp(31px, 5vw, 42px);
           line-height: 1.1;
           font-weight: 900;
         }
@@ -466,13 +509,17 @@ def inject_css() -> None:
           border: 1px solid rgba(6,78,59,.75);
           border-radius: 14px;
           overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
         .heatmap img {
           width: 100%;
           height: 100%;
-          object-fit: cover;
-          opacity: .66;
+          object-fit: contain;
+          opacity: 1;
           filter: saturate(1.15);
+          background: #020605;
         }
         .hotspot {
           position: absolute;
@@ -498,6 +545,17 @@ def inject_css() -> None:
           font-family: "JetBrains Mono", monospace;
           font-size: 9px;
           font-weight: 800;
+        }
+        .warning-note {
+          border: 1px solid rgba(251,146,60,.35);
+          background: rgba(124,45,18,.20);
+          color: #fdba74;
+          border-radius: 8px;
+          padding: 8px 10px;
+          margin-top: 10px;
+          font-family: "JetBrains Mono", monospace;
+          font-size: 10px;
+          line-height: 1.45;
         }
         ul.tiny-list, ol.tiny-list {
           color: #cbd5e1;
@@ -602,6 +660,10 @@ def inject_css() -> None:
           gap: 12px;
           flex-wrap: wrap;
         }
+        @media (max-width: 1100px) {
+          .result-header { grid-template-columns: 1fr 1fr; }
+          .result-header > div:first-child { grid-column: 1 / -1; }
+        }
         @media (max-width: 900px) {
           .topbar { height: auto; align-items: flex-start; flex-direction: column; padding: 14px; }
           .status-row { justify-content: flex-start; }
@@ -609,6 +671,56 @@ def inject_css() -> None:
           .result-header { grid-template-columns: 1fr; }
           .treatment-grid { grid-template-columns: 1fr; }
           .pipeline-box { width: 760px; }
+        }
+        @media (max-width: 680px) {
+          .block-container {
+            padding-left: .75rem;
+            padding-right: .75rem;
+            padding-bottom: 1.5rem;
+          }
+          .topbar { gap: 12px; }
+          .brand { align-items: flex-start; }
+          .brand-name {
+            flex-wrap: wrap;
+            font-size: 16px;
+            line-height: 1.25;
+          }
+          .subtitle { font-size: 9px; line-height: 1.4; }
+          .status-row, .status-pill { width: 100%; }
+          .status-pill { justify-content: center; }
+          .hero { padding: 18px; border-radius: 18px; }
+          .hero-title { font-size: 32px; }
+          .hero-subtitle { font-size: 16px; }
+          .glass-panel, .result-header { border-radius: 14px; }
+          .diagnosis-card, .result-header, .metric-card, .feature-card, .dark-card {
+            padding: 14px;
+          }
+          .diagnosis-card-head {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          .section-label {
+            font-size: 10px;
+            letter-spacing: .08em;
+            line-height: 1.45;
+          }
+          [data-testid="stFileUploader"] { padding: 12px; }
+          [data-testid="stFileUploader"] section { padding: 0; }
+          [data-testid="stFileUploader"] button,
+          .stButton button,
+          .stDownloadButton button {
+            width: 100%;
+            min-height: 44px;
+          }
+          .specimen-frame, .heatmap { min-height: 220px; }
+          .meta-grid { grid-template-columns: 1fr; }
+          .map-caption { line-height: 1.4; }
+          .treatment-grid { gap: 14px; }
+          ul.tiny-list, ol.tiny-list {
+            font-size: 12px;
+            line-height: 1.65;
+            padding-left: 16px;
+          }
         }
         @media print {
           [data-testid="stSidebar"], .topbar, .stButton, .stDownloadButton, [data-testid="stFileUploader"] {
@@ -838,16 +950,6 @@ def run_inference(uploaded_file) -> None:
         st.session_state.model_error = str(exc)
     except Exception as exc:  # noqa: BLE001
         st.session_state.model_error = f"Model inference failed: {exc}"
-
-
-def process_gradcam_upload(uploaded_file) -> None:
-    if uploaded_file is not None:
-        st.session_state.gradcam_bytes = uploaded_file.getvalue()
-        st.session_state.gradcam_uri = to_data_uri(
-            st.session_state.gradcam_bytes,
-            uploaded_file.type or "image/png",
-        )
-        st.session_state.gradcam_error = None
 
 
 def process_arch_upload(uploaded_file) -> None:
@@ -1107,41 +1209,42 @@ def render_result_header(diagnosis: dict) -> None:
 
 
 def render_heatmap(diagnosis: dict) -> None:
-    if st.session_state.gradcam_bytes:
-        st.image(
-            st.session_state.gradcam_bytes,
-            caption="Grad-CAM++ attention overlay generated from the trained hybrid model",
-            use_container_width=True,
-        )
+    if st.session_state.gradcam_uri:
+        visual = f'<img src="{st.session_state.gradcam_uri}" alt="Grad-CAM++ attention map"/>'
         caption = f"Attention Map Focus High-Density hotspots: {len(diagnosis['gradCamMetadata']['hotspots'])} Nodes"
-    elif st.session_state.selected_leaf_bytes:
-        st.image(
-            st.session_state.selected_leaf_bytes,
-            caption="Uploaded specimen shown while Grad-CAM++ is unavailable",
-            use_container_width=True,
-        )
-        caption = st.session_state.gradcam_error or "Grad-CAM++ overlay has not been generated for this specimen."
+        status = "Auto Map"
+    elif st.session_state.selected_leaf_uri:
+        visual = f'<img src="{st.session_state.selected_leaf_uri}" alt="Uploaded leaf specimen"/>'
+        caption = st.session_state.gradcam_error or "Original uploaded image shown while Grad-CAM++ is unavailable."
+        status = "Original"
     else:
-        st.markdown(
-            """
-            <div class="heatmap">
-              <div class="placeholder" style="padding-top:110px;">Generating Gaze Model</div>
-              <div class="map-caption">Awaiting uploaded specimen</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        visual = '<div class="placeholder">Awaiting Uploaded Specimen</div>'
         caption = "Awaiting uploaded specimen"
+        status = "Waiting"
 
+    warning = ""
     if st.session_state.gradcam_error:
-        st.warning(st.session_state.gradcam_error)
+        warning = f'<div class="warning-note">{html.escape(str(st.session_state.gradcam_error))}</div>'
 
     st.markdown(
         f"""
-        <div class="dark-card" style="font-family:JetBrains Mono;font-size:10px;color:#94a3b8;line-height:1.55;margin-top:10px;">
-          <strong style="color:#a7f3d0;">Target Attributions:</strong>
-          {html.escape(str(diagnosis["gradCamMetadata"]["description"]))}
-          <br><strong style="color:#34d399;">{html.escape(caption)}</strong>
+        <div class="glass-panel diagnosis-card">
+          <div class="diagnosis-card-head">
+            <div>
+              <div class="section-label no-margin">Grad-CAM++ Explainability Map</div>
+              <div class="card-subtext">Generated from the same uploaded leaf image.</div>
+            </div>
+            <span class="status-badge">{html.escape(status)}</span>
+          </div>
+          <div class="heatmap">
+            {visual}
+            <div class="map-caption">{html.escape(caption)}</div>
+          </div>
+          {warning}
+          <div class="dark-card" style="font-family:JetBrains Mono;font-size:10px;color:#94a3b8;line-height:1.55;margin-top:12px;">
+            <strong style="color:#a7f3d0;">Target Attributions:</strong>
+            {html.escape(str(diagnosis["gradCamMetadata"]["description"]))}
+          </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -1192,32 +1295,27 @@ def render_diagnosis() -> None:
         st.write("")
         h1, h2 = st.columns(2, gap="large")
         with h1:
-            st.markdown(
-                '<div class="glass-panel" style="padding:20px;"><div class="section-label">Grad-CAM++ Explainability Map</div></div>',
-                unsafe_allow_html=True,
-            )
-            grad_file = st.file_uploader(
-                "Replace Map (PNG)",
-                type=["png", "jpg", "jpeg", "webp"],
-                key="gradcam_uploader",
-                label_visibility="collapsed",
-            )
-            process_gradcam_upload(grad_file)
             render_heatmap(diagnosis)
             render_top_predictions(diagnosis)
 
         with h2:
             st.markdown(
                 f"""
-                <div class="glass-panel" style="padding:20px;">
-                  <div class="section-label">Academic Diagnostic Pathology</div>
+                <div class="glass-panel diagnosis-card">
+                  <div class="diagnosis-card-head">
+                    <div>
+                      <div class="section-label no-margin">Diagnosis Details</div>
+                      <div class="card-subtext">Symptoms and notes matched to the predicted class.</div>
+                    </div>
+                    <span class="status-badge">{html.escape(str(diagnosis["severityLevel"]))}</span>
+                  </div>
                   <div class="dark-card">
-                    <div style="color:#34d399;font-family:JetBrains Mono;font-size:10px;font-weight:900;text-transform:uppercase;border-bottom:1px solid rgba(6,78,59,.55);padding-bottom:6px;margin-bottom:8px;">Pathological Symptoms</div>
+                    <div style="color:#34d399;font-family:JetBrains Mono;font-size:10px;font-weight:900;text-transform:uppercase;border-bottom:1px solid rgba(6,78,59,.55);padding-bottom:6px;margin-bottom:8px;">Visible Symptoms</div>
                     {html_list(diagnosis["symptoms"])}
                   </div>
                   <div style="height:14px;"></div>
                   <div class="dark-card">
-                    <div style="color:#34d399;font-family:JetBrains Mono;font-size:10px;font-weight:900;text-transform:uppercase;border-bottom:1px solid rgba(6,78,59,.55);padding-bottom:6px;margin-bottom:8px;">ST-ENet Core Validation Notes</div>
+                    <div style="color:#34d399;font-family:JetBrains Mono;font-size:10px;font-weight:900;text-transform:uppercase;border-bottom:1px solid rgba(6,78,59,.55);padding-bottom:6px;margin-bottom:8px;">Research Notes</div>
                     <p style="color:#cbd5e1;font-size:12px;line-height:1.6;margin:0;">{html.escape(str(diagnosis["researchNotes"]))}</p>
                   </div>
                 </div>
@@ -1228,19 +1326,19 @@ def render_diagnosis() -> None:
         st.write("")
         st.markdown(
             f"""
-            <div class="glass-panel" style="padding:24px;">
-              <div class="section-label" style="border-bottom:1px solid #1A3A32;padding-bottom:10px;">Recommended Phytosanitary Treatment Protocols</div>
+            <div class="glass-panel diagnosis-card">
+              <div class="section-label" style="border-bottom:1px solid #1A3A32;padding-bottom:10px;">Treatment Plan</div>
               <div class="treatment-grid">
                 <div>
-                  <div class="treatment-label">I. Cultural & Preventive</div>
+                  <div class="treatment-label">Preventive Care</div>
                   {html_list(diagnosis["treatment"]["preventive"], ordered=True)}
                 </div>
                 <div>
-                  <div class="treatment-label" style="color:#2dd4bf;border-color:rgba(45,212,191,.25);background:rgba(20,184,166,.12);">II. Organic & Biocontrol</div>
+                  <div class="treatment-label" style="color:#2dd4bf;border-color:rgba(45,212,191,.25);background:rgba(20,184,166,.12);">Organic Control</div>
                   {html_list(diagnosis["treatment"]["organic"], ordered=True)}
                 </div>
                 <div>
-                  <div class="treatment-label" style="color:#fb7185;border-color:rgba(251,113,133,.25);background:rgba(159,18,57,.22);">III. Targeted Chemical</div>
+                  <div class="treatment-label" style="color:#fb7185;border-color:rgba(251,113,133,.25);background:rgba(159,18,57,.22);">Chemical Control</div>
                   {html_list(diagnosis["treatment"]["chemical"], ordered=True)}
                 </div>
               </div>
@@ -1254,10 +1352,10 @@ def render_diagnosis() -> None:
         with report_col:
             st.markdown(
                 """
-                <div class="glass-panel" style="padding:18px;">
-                  <div style="font-family:JetBrains Mono;color:#34d399;font-weight:900;">Research Dossier Generation Module</div>
+                <div class="glass-panel diagnosis-card">
+                  <div style="font-family:JetBrains Mono;color:#34d399;font-weight:900;">Report Export</div>
                   <p class="body-copy" style="font-size:12px;margin:6px 0 0;">
-                    Export or print the current diagnosis dossier with class, confidence, severity, attention map, and treatment plan.
+                    Current diagnosis summary with class, confidence, severity, attention map, and treatment plan.
                   </p>
                 </div>
                 """,
