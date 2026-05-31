@@ -1236,9 +1236,9 @@ def validate_apple_leaf_image(image: Image.Image) -> bool:
     green_ratio = float(green_mask.mean())
     vegetation_ratio = float(vegetation_mask.mean())
 
-    if green_ratio < 0.008 and vegetation_ratio < 0.045:
+    if green_ratio < 0.006 and vegetation_ratio < 0.035:
         return False
-    if vegetation_ratio < 0.035 or vegetation_ratio > 0.96:
+    if vegetation_ratio < 0.025:
         return False
 
     component_mask = Image.fromarray(vegetation_mask.astype("uint8") * 255).resize((96, 96))
@@ -1263,21 +1263,41 @@ def validate_apple_leaf_image(image: Image.Image) -> bool:
     fill_ratio = largest_area / bbox_area
     aspect_ratio = bbox_width / max(bbox_height, 1)
 
-    if largest_ratio < 0.025 or dominant_ratio < 0.40 or significant_components > 8:
+    if largest_ratio < 0.018:
         return False
-    if not (0.16 <= aspect_ratio <= 6.5):
+    if dominant_ratio < 0.24 and vegetation_ratio < 0.24:
         return False
-    if not (0.025 <= bbox_ratio <= 0.98):
+    if significant_components > 12 and largest_ratio < 0.10:
         return False
-    if not (0.08 <= fill_ratio <= 0.98):
+    if not (0.10 <= aspect_ratio <= 10.0):
+        return False
+    if bbox_ratio < 0.018:
+        return False
+    if fill_ratio < 0.045:
         return False
 
     red_orange_ratio = float(((red > 0.50) & (red > green * 1.22) & (red > blue * 1.25)).mean())
     white_flat_ratio = float(((gray > 0.82) & (saturation < 0.12)).mean())
-    if red_orange_ratio > 0.55 or white_flat_ratio > 0.78:
+    if red_orange_ratio > 0.60 and green_ratio < 0.08:
+        return False
+    if white_flat_ratio > 0.86 and vegetation_ratio < 0.25:
         return False
 
-    return True
+    leaf_score = 0
+    leaf_score += vegetation_ratio >= 0.025
+    leaf_score += vegetation_ratio >= 0.055
+    leaf_score += green_ratio >= 0.006
+    leaf_score += largest_ratio >= 0.018
+    leaf_score += largest_ratio >= 0.045
+    leaf_score += dominant_ratio >= 0.24 or vegetation_ratio >= 0.45
+    leaf_score += significant_components <= 12
+    leaf_score += 0.10 <= aspect_ratio <= 10.0
+    leaf_score += bbox_ratio >= 0.018
+    leaf_score += fill_ratio >= 0.045
+    leaf_score += contrast >= 0.025
+    leaf_score += sharpness >= 0.0025
+
+    return leaf_score >= 7
 
 
 def build_diagnosis(prediction: dict, image: Image.Image) -> dict:
